@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = "bravo08/two-tier-flask-app"
+    }
+
     stages {
         stage("Code Clone") {
             steps {
@@ -14,20 +18,35 @@ pipeline {
             steps {
                 echo "Building Docker image via compose..."
                 sh 'docker compose build flask-app'
+                sh 'docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:${BUILD_NUMBER}'
             }
         }
 
         stage("Test") {
             steps {
                 echo "Checking Docker image..."
-                sh 'docker image inspect my-app:latest'
+                sh 'docker image inspect ${IMAGE_NAME}:latest'
+            }
+        }
+
+        stage("Push to Docker Hub") {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerHubCreds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                    sh 'docker push ${IMAGE_NAME}:latest'
+                    sh 'docker push ${IMAGE_NAME}:${BUILD_NUMBER}'
+                }
             }
         }
 
         stage("Deploy") {
             steps {
                 echo "Deploying..."
-                sh 'docker compose up -d --build --no-deps --force-recreate flask-app'
+                sh 'docker compose up -d --no-deps --force-recreate flask-app'
                 sh 'docker image prune -f'
             }
         }
@@ -44,8 +63,11 @@ pipeline {
     }
 
     post {
+        always {
+            sh 'docker logout || true'
+            echo "Pipeline execution finished."
+        }
         success { echo "CI/CD pipeline completed successfully!" }
-        failure { echo "Pipeline failed. Check the stage logs."  }
-        always  { echo "Pipeline execution finished." }
+        failure { echo "Pipeline failed. Check the stage logs." }
     }
 }
