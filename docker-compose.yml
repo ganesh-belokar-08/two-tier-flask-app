@@ -20,7 +20,29 @@ services:
       start_period: 30s
 
   flask-app:
-    image: my-app:${BUILD_NUMBER:-latest}
+  build: .
+  image: my-app:latest
+  container_name: flask-app
+  ports:
+    - "5000:5000"
+  environment:
+    MYSQL_HOST: mysql
+    MYSQL_USER: ${MYSQL_USER:-admin}
+    MYSQL_PASSWORD: ${MYSQL_PASSWORD:-admin}
+    MYSQL_DB: ${MYSQL_DATABASE:-devops}
+  depends_on:
+    mysql:
+      condition: service_healthy
+  networks:
+    - twotier
+  restart: always
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+    start_period: 30s
+    image: my-app:latest
     container_name: flask-app
     ports:
       - "5000:5000"
