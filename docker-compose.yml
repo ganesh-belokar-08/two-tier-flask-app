@@ -22,7 +22,7 @@ services:
   flask-app:
     build: .
     image: bravo08/two-tier-flask-app:latest
-    container_name: flask-appp
+    container_name: flask-app
     ports:
       - "5000:5000"
     environment:
